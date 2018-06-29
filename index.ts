@@ -1,9 +1,11 @@
-import archiver from "archiver";
-import crypto from "crypto";
-import express, { NextFunction, Request, Response } from "express";
-import { PassThrough, Writable } from "stream";
+import "reflect-metadata";
 
-const ONE_MB_DATA = crypto.randomBytes(1024 * 1024);
+import archiver from "archiver";
+import express, { NextFunction, Request, Response } from "express";
+import { useExpressServer } from "routing-controllers";
+import { PassThrough } from "stream";
+import { write100MB } from "./utils";
+import { ZipController } from "./ZipController";
 
 const app = express();
 
@@ -22,21 +24,6 @@ const errorHandler = function (err: any, req: Request, res: Response, next: Next
     res.send("ERROR: " + err.message);
 };
 
-function writeData(writeStream: Writable, callback: () => void) {
-    let counter = 0;
-
-    function write() {
-        if (counter++ < 100) {
-            writeStream.write(ONE_MB_DATA);
-            setTimeout(write, 10);
-        } else {
-            callback();
-        }
-    }
-
-    setTimeout(write, 10);
-}
-
 app.use(requestLogger);
 
 app.get("/", (req, res) => {
@@ -53,7 +40,7 @@ app.get("/zip100mb", (req, res, next) => {
     const passThrough = new PassThrough();
     archive.append(passThrough, { name: "some-file.dat" });
 
-    writeData(passThrough, () => {
+    write100MB(passThrough, () => {
         passThrough.end(() => console.log("Done writing data!"));
     });
 
@@ -70,7 +57,7 @@ app.get("/zip100mberror", (req, res, next) => {
     const passThrough = new PassThrough();
     archive.append(passThrough, { name: "some-file.dat" });
 
-    writeData(passThrough, () => {
+    write100MB(passThrough, () => {
         passThrough.emit("error", new Error("OH NOES! ERROR IN SOME FILE STREAM!"));
     });
 
@@ -94,6 +81,10 @@ app.get("/ziperror", (req, res, next) => {
 
 app.get("/error", () => {
     throw new Error("KA-BOOM!");
+});
+
+useExpressServer(app, {
+    controllers: [ZipController],
 });
 
 app.use(errorHandler);

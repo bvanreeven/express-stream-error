@@ -1,3 +1,4 @@
 bootstrap.sh
 node_modules/
 *.js
+*.zip
